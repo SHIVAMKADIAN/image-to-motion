@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cinemagraph — Static Image to Motion</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="app">
+    <header>
+      <h1>Cinemagraph</h1>
+      <p class="subtitle">Turn a static image into a looping motion</p>
+    </header>
+
+    <main>
+      <!-- Step 1: Upload -->
+      <section class="step" id="step-upload">
+        <div class="step-header">
+          <span class="step-num">1</span>
+          <h2>Upload Image</h2>
+        </div>
+        <div class="upload-zone" id="upload-zone">
+          <input type="file" id="file-input" accept="image/*" hidden>
+          <div class="upload-prompt">
+            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+              <polyline points="17 8 12 3 7 8"/>
+              <line x1="12" y1="3" x2="12" y2="15"/>
+            </svg>
+            <span>Drop an image here or click to browse</span>
+          </div>
+          <img id="preview-img" hidden>
+        </div>
+      </section>
+
+      <!-- Step 2: Mask -->
+      <section class="step disabled" id="step-mask">
+        <div class="step-header">
+          <span class="step-num">2</span>
+          <h2>Define Motion Area</h2>
+        </div>
+        <div class="mask-controls">
+          <div class="mask-mode-tabs">
+            <button class="tab active" data-mode="paint">Paint Mask</button>
+            <button class="tab" data-mode="auto">Auto-Detect</button>
+          </div>
+
+          <div class="paint-controls" id="paint-controls">
+            <label>Brush Size
+              <input type="range" id="brush-size" min="5" max="100" value="30">
+              <span id="brush-size-val">30</span>
+            </label>
+            <div class="paint-buttons">
+              <button id="btn-paint" class="active" title="Paint animated area">Paint</button>
+              <button id="btn-erase" title="Erase mask">Erase</button>
+              <button id="btn-clear-mask" title="Clear entire mask">Clear</button>
+            </div>
+          </div>
+
+          <div class="auto-controls" id="auto-controls" hidden>
+            <div class="auto-buttons">
+              <button data-auto="sky">Sky</button>
+              <button data-auto="water">Water</button>
+              <button data-auto="green">Foliage</button>
+            </div>
+            <label>Threshold
+              <input type="range" id="auto-threshold" min="10" max="100" value="40">
+              <span id="auto-threshold-val">40</span>
+            </label>
+          </div>
+        </div>
+
+        <div class="canvas-container">
+          <canvas id="canvas-main"></canvas>
+          <canvas id="canvas-mask"></canvas>
+        </div>
+      </section>
+
+      <!-- Step 3: Motion -->
+      <section class="step disabled" id="step-motion">
+        <div class="step-header">
+          <span class="step-num">3</span>
+          <h2>Choose Motion</h2>
+        </div>
+
+        <div class="motion-grid">
+          <button class="motion-card active" data-motion="ripple">
+            <span class="motion-icon">🌊</span>
+            <span class="motion-name">Ripple</span>
+            <span class="motion-desc">Water, puddles</span>
+          </button>
+          <button class="motion-card" data-motion="flow">
+            <span class="motion-icon">🏞️</span>
+            <span class="motion-name">Flow</span>
+            <span class="motion-desc">Rivers, streams</span>
+          </button>
+          <button class="motion-card" data-motion="breathe">
+            <span class="motion-icon">🌿</span>
+            <span class="motion-name">Breathe</span>
+            <span class="motion-desc">Foliage, fabric</span>
+          </button>
+          <button class="motion-card" data-motion="cloud">
+            <span class="motion-icon">☁️</span>
+            <span class="motion-name">Cloud</span>
+            <span class="motion-desc">Sky, smoke</span>
+          </button>
+          <button class="motion-card" data-motion="sway">
+            <span class="motion-icon">🌾</span>
+            <span class="motion-name">Sway</span>
+            <span class="motion-desc">Trees, grass</span>
+          </button>
+          <button class="motion-card" data-motion="shimmer">
+            <span class="motion-icon">✨</span>
+            <span class="motion-name">Shimmer</span>
+            <span class="motion-desc">Heat haze, glitter</span>
+          </button>
+          <button class="motion-card" data-motion="zoom">
+            <span class="motion-icon">💫</span>
+            <span class="motion-name">Zoom</span>
+            <span class="motion-desc">Pulsating glow</span>
+          </button>
+          <button class="motion-card" data-motion="spiral">
+            <span class="motion-icon">🌀</span>
+            <span class="motion-name">Spiral</span>
+            <span class="motion-desc">Whirlpool, vortex</span>
+          </button>
+        </div>
+
+        <div class="params">
+          <label>Amplitude
+            <input type="range" id="param-amplitude" min="1" max="20" value="6" step="0.5">
+            <span id="param-amplitude-val">6</span>
+          </label>
+          <label>Duration
+            <input type="range" id="param-duration" min="0.5" max="3" value="1" step="0.25">
+            <span id="param-duration-val">1s</span>
+          </label>
+          <label>FPS
+            <input type="range" id="param-fps" min="10" max="30" value="20">
+            <span id="param-fps-val">20</span>
+          </label>
+          <label>Feather
+            <input type="range" id="param-feather" min="0" max="30" value="8">
+            <span id="param-feather-val">8</span>
+          </label>
+        </div>
+      </section>
+
+      <!-- Step 4: Preview & Export -->
+      <section class="step disabled" id="step-preview">
+        <div class="step-header">
+          <span class="step-num">4</span>
+          <h2>Preview &amp; Export</h2>
+        </div>
+        <div class="preview-area">
+          <canvas id="canvas-preview"></canvas>
+          <div class="preview-controls">
+            <button id="btn-generate" class="btn-primary">Generate Animation</button>
+            <button id="btn-play" hidden>Play / Pause</button>
+          </div>
+          <div class="progress-bar" id="progress-bar" hidden>
+            <div class="progress-fill" id="progress-fill"></div>
+            <span class="progress-text" id="progress-text">0%</span>
+          </div>
+          <div class="export-buttons" id="export-buttons" hidden>
+            <button id="btn-export-gif" class="btn-secondary">Download GIF</button>
+            <button id="btn-export-webm" class="btn-secondary">Download WebM</button>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer>
+      <p>Runs entirely in your browser — no uploads, no server.</p>
+    </footer>
+  </div>
+
+  <script src="engine.js"></script>
+  <script src="gif-encoder.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
