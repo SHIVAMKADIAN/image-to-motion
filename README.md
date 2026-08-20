@@ -1,12 +1,85 @@
 # image-to-motion
 
-Turn a static image into a looping cinemagraph — subtle, seamless motion in a specific region while the rest stays frozen.
+Two tools to animate static images:
 
-## Quick start
+1. **`depth_motion.py`** — Depth-based 3D parallax (Depth Anything V2 Small + OpenCV)
+2. **`cinemagraph.py`** — Mask-based cinemagraph loops (OpenCV only)
+3. **`frontend/`** — Browser-based UI for Netlify deployment
+
+---
+
+## Depth-Based Parallax (`depth_motion.py`)
+
+Uses monocular depth estimation to create 3D parallax motion — closer objects move more than distant ones.
 
 ```bash
 pip install -r requirements.txt
 
+# With Depth Anything V2 Small (best quality)
+python depth_motion.py photo.jpg -o parallax.mp4 --mode dolly
+
+# Without ML model (pure OpenCV gradient-based depth)
+python depth_motion.py photo.jpg -o parallax.mp4 --mode orbit --depth-method gradient
+
+# Save the depth map visualization
+python depth_motion.py photo.jpg --save-depth --mode pan --amplitude 15
+```
+
+### Depth estimation methods
+
+| Method     | Quality   | Requirements                           |
+|------------|-----------|----------------------------------------|
+| `auto`     | Best available | Tries ML, falls back to gradient  |
+| `ml`       | High      | `transformers`, `torch`, `Pillow`      |
+| `gradient` | Decent    | OpenCV + NumPy only (no ML needed)     |
+
+### Parallax modes
+
+| Mode      | Effect                                | Best for                    |
+|-----------|---------------------------------------|-----------------------------|
+| `dolly`   | Camera push-in/pull-out               | Portraits, landscapes       |
+| `pan`     | Horizontal camera slide               | Wide scenes, cityscapes     |
+| `tilt`    | Vertical camera slide                 | Tall buildings, waterfalls  |
+| `orbit`   | Circular camera movement              | Any photo (most dramatic)   |
+| `breathe` | Depth-based pulsing from center       | Portraits, close-ups        |
+
+### CLI options
+
+```
+python depth_motion.py <image> [options]
+
+  -o, --output         Output MP4 path (default: parallax.mp4)
+  --mode               dolly|pan|tilt|orbit|breathe (default: dolly)
+  --duration           Video duration in seconds (default: 2.0)
+  --fps                Frames per second (default: 24)
+  --amplitude          Motion strength (default: 12.0)
+  --depth-method       auto|ml|gradient (default: auto)
+  --save-depth         Save depth map as PNG
+```
+
+### How it works
+
+1. Load image, resize if > 1024px
+2. Estimate depth map (Depth Anything V2 Small or gradient fallback)
+3. For each frame, compute displacement proportional to depth × motion function
+4. Remap pixels with bilinear interpolation (`cv2.remap`)
+5. All motion functions are periodic (sine-based) for seamless looping
+6. Export as MP4 via imageio/ffmpeg or OpenCV fallback
+
+### Stack
+
+- **Depth Anything V2 Small** — monocular depth estimation (HuggingFace transformers)
+- **OpenCV** — pixel remapping, image I/O
+- **NumPy** — frame calculations
+- **imageio + PyAV** — H.264 MP4 export (falls back to OpenCV mp4v)
+
+---
+
+## Cinemagraph Generator (`cinemagraph.py`)
+
+Mask-based approach — paint or auto-detect which region to animate.
+
+```bash
 # With a hand-drawn mask
 python cinemagraph.py photo.jpg mask.png -o cinemagraph.mp4 --motion ripple
 
@@ -17,31 +90,20 @@ python cinemagraph.py lake.jpg --auto-mask water --motion flow -o lake.mp4
 python cinemagraph.py sky.jpg --auto-mask sky --motion cloud -o sky.gif
 ```
 
-## Web UI
+### Motion presets (8 total)
 
-```bash
-python app.py
-# Opens at http://localhost:7860
-```
+| Preset    | Best for                          |
+|-----------|-----------------------------------|
+| `ripple`  | Water, puddles, reflections       |
+| `flow`    | Rivers, streams, waterfalls       |
+| `breathe` | Foliage, fabric                  |
+| `cloud`   | Sky, smoke, fog                  |
+| `sway`    | Trees, grass                     |
+| `shimmer` | Heat haze, glitter               |
+| `zoom`    | Pulsating glow                   |
+| `spiral`  | Whirlpool, vortex                |
 
-Upload an image, draw or auto-detect a mask, pick a motion preset, and download the result.
-
-## Motion presets
-
-| Preset    | Effect                                  | Best for                          |
-|-----------|-----------------------------------------|-----------------------------------|
-| `ripple`  | Concentric sine-wave displacement       | Water, puddles, reflections       |
-| `flow`    | Directional horizontal drift + wobble   | Rivers, streams, waterfalls       |
-| `breathe` | Radial expand/contract                 | Foliage, fabric, gentle sway      |
-| `cloud`   | Lateral drift with turbulence          | Sky, smoke, fog                   |
-| `sway`    | Pendulum swing (top fixed)             | Trees, grass, hanging objects     |
-| `shimmer` | High-frequency micro-jitter            | Heat haze, glitter, light on water|
-| `zoom`    | Pulsing zoom in/out from center        | Heartbeat, pulsating glow         |
-| `spiral`  | Rotational twist around center         | Whirlpool, vortex                 |
-
-## Auto-mask modes
-
-Skip the manual mask — auto-detect regions by color:
+### Auto-mask modes
 
 | Mode    | Detects                        |
 |---------|--------------------------------|
@@ -49,37 +111,26 @@ Skip the manual mask — auto-detect regions by color:
 | `water` | Blue/cyan water regions        |
 | `green` | Foliage and vegetation         |
 
+---
+
+## Web UI (Netlify)
+
+Static frontend — runs entirely in the browser, no server needed.
+
 ```bash
-python cinemagraph.py photo.jpg --auto-mask water --motion ripple
+# Local preview
+cd frontend && python -m http.server 8000
 ```
 
-## CLI options
+### Deploy to Netlify
 
-```
-positional:
-  image              Input image (jpg/png)
-  mask               Grayscale mask (optional if --auto-mask used)
+1. Connect the repo at [app.netlify.com](https://app.netlify.com)
+2. `netlify.toml` is pre-configured: publish directory = `frontend/`, no build step
+3. Deploy
 
-optional:
-  -o, --output       Output path — .mp4 or .gif (default: output.mp4)
-  --motion           ripple|flow|breathe|cloud|sway|shimmer|zoom|spiral
-  --auto-mask        sky|water|green — auto-detect mask region
-  --duration         Loop length in seconds (default: 1.0)
-  --fps              Frames per second (default: 24)
-  --amplitude        Override motion strength (0 = preset default)
-  --feather          Mask edge softness radius (default: 5)
-```
+### Features
 
-## How it works
-
-1. Load image + mask (hand-drawn or auto-detected via HSV color analysis)
-2. Feather the mask edges with Gaussian blur for smooth blending
-3. For each frame, compute a periodic displacement map (sine-based warping)
-4. Remap the masked region with `cv2.remap`
-5. Alpha-blend warped region back onto the frozen background
-6. All displacement functions are periodic over the duration, so the output loops seamlessly
-7. Write as MP4 (OpenCV VideoWriter) or GIF (built-in LZW encoder)
-
-## Creating masks manually
-
-Paint white over the areas you want animated (water, clouds, etc.) in any image editor and save as a grayscale PNG. Black = frozen, white = animated, gray = partial blend.
+- Upload image, paint mask or auto-detect (sky/water/foliage)
+- 8 motion presets with amplitude, duration, FPS, feather controls
+- Real-time canvas preview
+- Export as GIF or WebM
